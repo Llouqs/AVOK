@@ -3,18 +3,17 @@ using System.Collections;
 using System.Collections.Generic;
 public class Tile : MonoBehaviour
 {
-
-    void Start()
+    private void Start()
     {
         Initialize();
     }
 
-    void Update()
+    private void Update()
     {
         
     }
 
-    void Initialize()
+    private void Initialize()
     {
 
 
