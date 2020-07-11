@@ -64,6 +64,7 @@
   <ItemGroup>
     <Compile Include="Assets\Scripts\BoardManager.cs" />
     <Compile Include="Assets\Scripts\Buttons.cs" />
+    <Compile Include="Assets\Scripts\Dot.cs" />
     <Compile Include="Assets\Scripts\Tile.cs" />
     <Reference Include="Unity.Timeline.Editor">
       <HintPath>E:/UnityGameAVOK/UnityGame/AVOK/Library/ScriptAssemblies/Unity.Timeline.Editor.dll</HintPath>

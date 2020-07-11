@@ -6,11 +6,13 @@ using UnityEngine.SceneManagement;
 public class Buttons : MonoBehaviour
 {
     public Sprite layer_one, layer_two;
-    void OnMouseDown()
+
+    private void OnMouseDown()
     {
         GetComponent<SpriteRenderer>().sprite = layer_two;
     }
-    void OnMouseUp()
+
+    private void OnMouseUp()
     {
         GetComponent<SpriteRenderer>().sprite = layer_one;
     }
