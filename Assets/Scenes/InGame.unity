@@ -427,10 +427,19 @@ MonoBehaviour:
   - {fileID: 5343438305647225773, guid: 95c33db7096daee47907c54019204a86, type: 3}
   - {fileID: 979777912524181100, guid: 3ad84bfcc6ef18a46ab70d7c1fe2971f, type: 3}
   - {fileID: 255179966020629791, guid: d651c703f8e7c864eab9c0aa578de5b5, type: 3}
+  bonusessPrefab:
+  - {fileID: 6645279923540135801, guid: 4fa5a74952c05984c86caaf002836af7, type: 3}
   width: 5
   height: 8
+  allLines: []
   scoresText: {fileID: 173239309}
   bestScoresText: {fileID: 513169553}
+  linePrefab: {fileID: 2738951421932734470, guid: 7bb1ecd67d8e80c45b62570a08a0253e,
+    type: 3}
+  boomEffect: {fileID: 590475760912880962, guid: d867c23c37e15f84ba043cca57c996aa,
+    type: 3}
+  doubleBoomEffect: {fileID: 2874553221826191770, guid: 2a49bbf209346aa4da11de9ea91e7f60,
+    type: 3}
 --- !u!1 &1047031233
 GameObject:
   m_ObjectHideFlags: 0

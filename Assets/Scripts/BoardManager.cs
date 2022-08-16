@@ -9,29 +9,32 @@ public class BoardManager : MonoBehaviour
 {
     public GameObject tilePrefab; //префаб (элемент в общем виде)
     public GameObject[] dotsPrefab;
+    public GameObject[] bonusessPrefab;
     public int width, height; //размер поля в элементах
     public GameObject[,] allTiles; //массив префабов (считать с левого нижнего угла по столбцу вверх, потом вправо и т.д.)
     public GameObject[,] allDots;
-    private List<Vector2Int> chain;
-    private int scores = 0;
-    private int bestScores = 0;
+    public List<GameObject> allLines;
+    private List<Vector2Int> _chain;
+    private int _scores = 0;
+    private int _bestScores = 0;
     public GameObject scoresText;
     public GameObject bestScoresText;
-
+    public GameObject linePrefab;
+    public GameObject boomEffect;
+    public GameObject doubleBoomEffect;
+    
     private void Start()
     {
-        if (PlayerPrefs.HasKey("bestScoresKey"))
-        {
-            bestScores = PlayerPrefs.GetInt("bestScoresKey");
-            bestScoresText.GetComponent<Text>().text = bestScores.ToString();
-        }
-        else{
-            bestScores = 0;
+        if (PlayerPrefs.HasKey("bestScoresKey")) { 
+            _bestScores = PlayerPrefs.GetInt("bestScoresKey");
+            bestScoresText.GetComponent<Text>().text = _bestScores.ToString();
+        } else {
+            _bestScores = 0;
             PlayerPrefs.SetInt("bestScoresKey", 0);
             PlayerPrefs.Save();
         }
 
-        chain = new List<Vector2Int>();
+        _chain = new List<Vector2Int>();
         allTiles = new GameObject[width, height];
         allDots = new GameObject[width, height];
         SetUp();
@@ -56,6 +59,57 @@ public class BoardManager : MonoBehaviour
         allDots[i, j] = dot;
     }
 
+    private GameObject NewLine(Vector2Int from, Vector2Int to)
+    {
+        float z=0f;
+        Vector2 tempPosition;
+        Vector2Int direction = new Vector2Int(from.x-to.x, from.y-to.y);
+        if (direction.x != 0)
+        {
+            tempPosition = direction.x == 1
+                ? new Vector2(@from.x + 0.5f, @from.y)
+                : new Vector2(@from.x - 0.5f, @from.y);
+            if (direction.y == 1)
+            {
+                if (direction.x == 1)
+                {
+                    z = 45f;
+                    tempPosition = new Vector2(@from.x + 0.5f, @from.y + 0.5f);
+                }
+                else
+                {
+                    z = -45f;
+                    tempPosition = new Vector2(@from.x - 0.5f, @from.y + 0.5f);
+                }
+            }
+            else if(direction.y == -1)
+            {
+                if (direction.x == 1)
+                {
+                    z = -45f;
+                    tempPosition = new Vector2(@from.x + 0.5f, @from.y - 0.5f);
+                }
+                else
+                {
+                    z = 45f;
+                    tempPosition = new Vector2(@from.x - 0.5f, @from.y - 0.5f);
+                }
+            }
+        }
+        else
+        {
+            tempPosition = direction.y == 1
+                ? new Vector2(@from.x, @from.y + 0.5f)
+                : new Vector2(@from.x, @from.y - 0.5f);
+            z = 90f;
+        }
+        GameObject line = Instantiate(linePrefab, tempPosition-direction, Quaternion.identity);
+        line.transform.parent = transform;
+        line.transform.rotation*= Quaternion.Euler(0f, 0f, z);
+        line.name = "( Line: " + from.x + ", " + from.y + " )";
+        return line; 
+    }
+
     private void SetUp()
     {
         for (int i = 0; i < width; i++) {
@@ -68,39 +122,58 @@ public class BoardManager : MonoBehaviour
 
     public void DestroyChain()
     {
-        if (chain.Count <= 2) return;
-        scores += chain.Count;
-        
-        if (chain.Count >= 7)
+        if (_chain.Count == 1)
         {
-            if (chain.Count >= 10)
+            return;
+        }
+        if (_chain.Count == 2)
+        {
+            Destroy(allLines[0]);
+            allLines.RemoveAt(0);
+            return;
+        }
+        _scores += _chain.Count;
+        
+        if (_chain.Count >= 7)
+        {
+            if (_chain.Count >= 10)
             {
-                scores += 30;
-                DoubleBoom(chain[chain.Count - 1]);
+                _scores += 30;
+                var effect = Instantiate(doubleBoomEffect, new Vector2(_chain[_chain.Count - 1].x, _chain[_chain.Count - 1].y), Quaternion.identity);
+                DoubleBoom(_chain[_chain.Count - 1]);
+                Destroy(effect, 2.0f);
             }
             else
             {
-                scores += 10;
-                Boom(chain[chain.Count - 1]);
+                _scores += 10;
+                var effect = Instantiate(boomEffect, new Vector2(_chain[_chain.Count - 1].x, _chain[_chain.Count - 1].y), Quaternion.identity);
+                Boom(_chain[_chain.Count - 1]);
+                Destroy(effect, 2.0f);
             }
         }
 
-        scoresText.GetComponent<Text>().text = scores.ToString();
-        if (scores > bestScores) {
-            bestScoresText.GetComponent<Text>().text = scores.ToString();
-            PlayerPrefs.SetInt("bestScoresKey", Convert.ToInt32(scores.ToString()));
+        scoresText.GetComponent<Text>().text = _scores.ToString();
+        if (_scores > _bestScores) {
+            bestScoresText.GetComponent<Text>().text = _scores.ToString();
+            PlayerPrefs.SetInt("bestScoresKey", Convert.ToInt32(_scores.ToString()));
             PlayerPrefs.Save();
         }
-        foreach (Vector2Int element in chain) {
+        foreach (Vector2Int element in _chain) {
             int x = element.x;
             int y = element.y;
             if (allDots[x, y].GetComponent<Dot>().GetState())
             {
+                allDots[x, y].GetComponent<Dot>().StartEffect();
                 Debug.Log("Desrtoyed: (" + x + ", " + y + ")");
                 Destroy(allDots[x, y]);
                 allDots[x, y] = null;
             }
         }
+        foreach (var obj in allLines)
+        {
+            Destroy(obj);
+        }
+        allLines.Clear();
     }
 
     private void Boom(Vector2Int boomElement)
@@ -110,26 +183,21 @@ public class BoardManager : MonoBehaviour
         if (x > 0)
         {
             AddToChain(new Vector2Int(x - 1, y));
-            allDots[x - 1, y].GetComponent<Dot>().SetState(true);
         }
         if (x < width - 1)
         {
             AddToChain(new Vector2Int(x+1, y));
-            allDots[x + 1, y].GetComponent<Dot>().SetState(true);
         }
-
         if (y > 0)
         {
             AddToChain(new Vector2Int(x, y-1));
-            allDots[x, y-1].GetComponent<Dot>().SetState(true);
         }
         if (y < height - 1)
         {
             AddToChain(new Vector2Int(x, y+1));
-            allDots[x, y+1].GetComponent<Dot>().SetState(true);
         }
     }
-    
+
     private void DoubleBoom(Vector2Int boomElement)
     {
         int x = boomElement.x;
@@ -137,26 +205,21 @@ public class BoardManager : MonoBehaviour
         if (x > 0)
         {
             AddToChain(new Vector2Int(x - 1, y));
-            allDots[x - 1, y].GetComponent<Dot>().SetState(true);
             Boom(new Vector2Int(x - 1, y));
         }
         if (x < width - 1)
         {
             AddToChain(new Vector2Int(x+1, y));
-            allDots[x + 1, y].GetComponent<Dot>().SetState(true);
             Boom(new Vector2Int(x + 1, y));
         }
-
         if (y > 0)
         {
             AddToChain(new Vector2Int(x, y-1));
-            allDots[x, y-1].GetComponent<Dot>().SetState(true);
             Boom(new Vector2Int(x, y-1));
         }
         if (y < height - 1)
         {
             AddToChain(new Vector2Int(x, y+1));
-            allDots[x, y+1].GetComponent<Dot>().SetState(true);
             Boom(new Vector2Int(x, y+1));
         }
     }
@@ -188,15 +251,28 @@ public class BoardManager : MonoBehaviour
                         //allDots[i, k].transform.position = tmpVector;
                         k++;
                     }
-                    for(int u = k; u < height; u++)
+
+                    for (int u = k; u < height; u++)
                     {
                         //NewDot(i, u);
-                        Vector3 tempPosition = new Vector3(i, u+5, 0); //тут падают всем блоком недостающих
-                        int dotToUse = Random.Range(0, dotsPrefab.Length);
-                        GameObject dot = Instantiate(dotsPrefab[dotToUse], tempPosition, Quaternion.identity);
-                        dot.transform.parent = transform;
-                        dot.name = "( Dot: " + i + ", " + u + " )";
-                        allDots[i, u] = dot;
+                        Vector3 tempPosition = new Vector3(i, u + 5, 0); //тут падают всем блоком недостающих
+                        GameObject dot;
+                        if (Random.Range(0, 15) != 0)
+                        {
+                            int dotToUse = Random.Range(0, dotsPrefab.Length);
+                            dot = Instantiate(dotsPrefab[dotToUse], tempPosition, Quaternion.identity);
+                            dot.transform.parent = transform;
+                            dot.name = "( Dot: " + i + ", " + u + " )";
+                            allDots[i, u] = dot;
+                        }
+                        else
+                        {
+                            int dotToUse = Random.Range(0, bonusessPrefab.Length);
+                            dot = Instantiate(bonusessPrefab[dotToUse], tempPosition, Quaternion.identity);
+                            dot.transform.parent = transform;
+                            dot.name = "( Bonus " + bonusessPrefab[dotToUse].name + ": " + i + ", " + u + " )";
+                            allDots[i, u] = dot;
+                        }
                         StartCoroutine(DownSlowFall(allDots[i, u], new Vector3(i, u, 0)));
                     }
                 }
@@ -217,35 +293,49 @@ public class BoardManager : MonoBehaviour
 
     public void AddToChain(Vector2Int obj)
     {
-        if (!chain.Contains(obj))
-            chain.Add(obj);
+        if (!_chain.Contains(obj))
+        {
+            allDots[obj.x, obj.y].GetComponent<Dot>().SetState(true);
+            _chain.Add(obj);
+            if (_chain.Count > 1)
+            {
+                Vector2Int from = new Vector2Int(_chain[_chain.Count-2].x, _chain[_chain.Count-2].y);
+                Vector2Int to = new Vector2Int(_chain[_chain.Count-1].x, _chain[_chain.Count-1].y);
+                allLines.Add(NewLine(from, to));
+            }
+        }
     }
 
     public void RemoveFromChainLast()
     {
-        chain.RemoveAt(chain.Count-1);
+        _chain.RemoveAt(_chain.Count - 1);
+        if (allLines.Count > 0)
+        {
+            Destroy(allLines[allLines.Count - 1]);
+            allLines.RemoveAt(allLines.Count - 1);
+        }
     }
 
     public bool IsPreviosDot(Vector2Int dotPos)
     {
-        return chain.IndexOf(dotPos) == chain.Count - 2 ? true : false;
+        return _chain.IndexOf(dotPos) == _chain.Count - 2 ? true : false;
     }
 
     public void ChainClear()
     {
-        foreach(Vector2Int element in chain)
+        foreach(Vector2Int element in _chain)
         {
             int x = element.x;
             int y = element.y;
             if (allDots[x, y].GetComponent<Dot>().GetState())
                 allDots[x, y].GetComponent<Dot>().SetSelected();
         }
-        chain.Clear();
+        _chain.Clear();
     }
 
     public int GetChainCount()
     {
-        return chain.Count;
+        return _chain.Count;
     }
 }
 

@@ -111,4 +111,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e278ab0f287c168468970c612bb2b439, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DotTypeName: 0
+  render: {fileID: 0}
+  effect: {fileID: 7645583284434553646, guid: 57d3eeb24aac9a141b45b906d4e26b64, type: 3}
+  effectObj: {fileID: 0}
