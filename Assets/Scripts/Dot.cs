@@ -1,33 +1,31 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
-
 public class Dot : MonoBehaviour
 {
     //public int DotTypeName;
-    [SerializeField]
-    private SpriteRenderer render; //переменная состояния тайла (цвет, размер и т.п.)
+    private SpriteRenderer _render; //переменная состояния тайла (цвет, размер и т.п.)
     private Transform _transformDot;
-    private static Color _selectedColor = new Color(.5f, .5f, .5f, 1.0f); //цвет подсветки тайла
-    private static Dot _previosSelectedDot = null;
-    private bool _isEnable = false;
-    private BoardManager _boardManager;
-    public GameObject effect;
-    public GameObject effectObj;
+    private static readonly Color SelectedColor = new Color(.5f, .5f, .5f, 1.0f); //цвет подсветки тайла
+    private static Dot _previosSelectedDot;
+    private bool _selected;
+    private static BoardManager _boardManager;
+    [SerializeField] private GameObject effect;
+    [SerializeField] private Sprite[] equalDots;
     private void Start()
     {
         _boardManager = FindObjectOfType<BoardManager>();
-        render = GetComponent<SpriteRenderer>();
+        _render = GetComponent<SpriteRenderer>();
         _transformDot = GetComponent<Transform>();
     }
 
     public void SetState(bool state)
     {
-        _isEnable = state;
+        _selected = state;
     }
     public bool GetState()
     {
-        return _isEnable;
+        return _selected;
     }
 
     private IEnumerator UpSlowScale()
@@ -46,73 +44,49 @@ public class Dot : MonoBehaviour
             yield return new WaitForSeconds(.015f);
         }
     }
-    private void OnMouseEnter()
+    
+    
+    private bool IsEqualDots()
     {
-        var flag = false;
-        if (Input.GetMouseButton(0))
-        {
-            if (_previosSelectedDot != null)
-            {
-                if (_previosSelectedDot.GetComponent<SpriteRenderer>().sprite == render.sprite)
-                {
-                    flag = true;
-                }
-                else
-                {
-                    if (_previosSelectedDot.GetComponent<SpriteRenderer>().sprite.name == "sun" ||
-                        _previosSelectedDot.GetComponent<SpriteRenderer>().sprite.name == "moon")
-                    {
-                        if (render.sprite.name == "eclipse")
-                        {
-                            flag = true;
-                        }
-                    }
-                    else
-                    {
-                        if (_previosSelectedDot.GetComponent<SpriteRenderer>().sprite.name == "eclipse")
-                        {
-                            if (render.sprite.name == "sun" ||
-                                render.sprite.name == "moon")
-                            {
-                                flag = true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        if (!Input.GetMouseButton(0) && _previosSelectedDot == null) return false;
+        return equalDots.Contains(_previosSelectedDot.GetComponent<SpriteRenderer>().sprite);
+    }
 
-        if (flag == true &&
-            _transformDot.position.x >= _previosSelectedDot._transformDot.position.x - 1 &&
-            _transformDot.position.x <= _previosSelectedDot._transformDot.position.x + 1 &&
-            _transformDot.position.y >= _previosSelectedDot._transformDot.position.y - 1 &&
-            _transformDot.position.y <= _previosSelectedDot._transformDot.position.y + 1)
-        {
-            if (this.GetState())
-            {
-                if (_boardManager.IsPreviosDot(new Vector2Int((int) transform.position.x,
-                    (int) transform.position.y)))
-                {
-                    SetSelected();
-                    _previosSelectedDot.SetSelected();
-                    _boardManager.RemoveFromChainLast();
-                    _boardManager.RemoveFromChainLast();
-                }
-                else
-                {
-                    StartCoroutine(UpSlowScale());
-                    return;
-                }
-            }
+    private bool IsNeighbourToPrevios()
+    {
+        var current = _transformDot.position;
+        var previous = _previosSelectedDot._transformDot.position;
 
-            _previosSelectedDot = this;
-
-            SetSelected();
-            AddDotChain(new Vector2Int((int) _transformDot.position.x,
-                (int) _transformDot.transform.position.y));
-        }
+        return Mathf.Abs(current.x - previous.x) <= 1 && Mathf.Abs(current.y - previous.y) <= 1;
     }
     
+    private void OnMouseEnter()
+    {
+        if (!IsEqualDots() || !IsNeighbourToPrevios()) return;
+        if (this.GetState())
+        {
+            if (_boardManager.IsPreviosDot(new Vector2Int((int) transform.position.x,
+                (int) transform.position.y)))
+            {
+                SetSelected();
+                _previosSelectedDot.SetSelected();
+                _boardManager.RemoveFromChainLast();
+                _boardManager.RemoveFromChainLast();
+            }
+            else
+            {
+                StartCoroutine(UpSlowScale());
+                return;
+            }
+        }
+
+        _previosSelectedDot = this;
+
+        SetSelected();
+        AddDotChain(new Vector2Int((int) _transformDot.position.x,
+            (int) _transformDot.transform.position.y));
+    }
+
     private void OnMouseExit()
     {
         if(this.GetState())
@@ -121,12 +95,10 @@ public class Dot : MonoBehaviour
 
     private void OnMouseDown()
     {
-        if (_previosSelectedDot == null)
-        {
-            _previosSelectedDot = this;
-            SetSelected();
-            AddDotChain(new Vector2Int((int)_transformDot.position.x, (int)_transformDot.transform.position.y));
-        }
+        if (_previosSelectedDot != null) return;
+        _previosSelectedDot = this;
+        SetSelected();
+        AddDotChain(new Vector2Int((int)_transformDot.position.x, (int)_transformDot.transform.position.y));
     }
 
     private void OnMouseUp()
@@ -141,19 +113,17 @@ public class Dot : MonoBehaviour
     }
     public void SetSelected()
     {
-
-        if (_isEnable == true)
+        if (_selected)
         {
-            render.color = Color.white;
-            SetState(false);
+            _render.color = Color.white;
             StartCoroutine(DownSlowScale());
         }
         else
         {
-            render.color = _selectedColor;
-            SetState(true);
+            _render.color = SelectedColor;
             StartCoroutine(UpSlowScale());
         }
+        _selected = !_selected;
     }
     private void AddDotChain(Vector2Int tmp)
     {
@@ -162,7 +132,7 @@ public class Dot : MonoBehaviour
 
     public void StartEffect()
     {
-        effectObj = Instantiate(effect, transform.position, Quaternion.identity);
+        var effectObj = Instantiate(effect, transform.position, Quaternion.identity);
         Destroy(effectObj, 2.0f);
     }
 }

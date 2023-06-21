@@ -113,4 +113,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   render: {fileID: 0}
   effect: {fileID: 7404390350933146387, guid: fb541a35dea63be45887e19158c492c4, type: 3}
-  effectObj: {fileID: 0}
+  equalDots:
+  - {fileID: 21300000, guid: 1304f9c17bc0269428f4a895097fb241, type: 3}

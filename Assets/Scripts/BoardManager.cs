@@ -1,39 +1,33 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine.UI;
 using Random = UnityEngine.Random;
 
 public class BoardManager : MonoBehaviour
 {
-    public GameObject tilePrefab; //префаб (элемент в общем виде)
-    public GameObject[] dotsPrefab;
-    public GameObject[] bonusessPrefab;
-    public int width, height; //размер поля в элементах
+    [SerializeField] private GameObject tilePrefab;
+    [SerializeField] private GameObject[] dotsPrefab;
+    [SerializeField] private GameObject[] bonusesPrefab;
+    [SerializeField] private GameObject linePrefab;
+    [SerializeField] private GameObject boomEffect;
+    [SerializeField] private GameObject doubleBoomEffect;
+    
+    [SerializeField] private int width, height; //размер поля в элементах
+
+    private int _scores = 0;
+    [SerializeField] private Record recordUI;
+    
     public GameObject[,] allTiles; //массив префабов (считать с левого нижнего угла по столбцу вверх, потом вправо и т.д.)
     public GameObject[,] allDots;
     public List<GameObject> allLines;
     private List<Vector2Int> _chain;
-    private int _scores = 0;
-    private int _bestScores = 0;
-    public GameObject scoresText;
-    public GameObject bestScoresText;
-    public GameObject linePrefab;
-    public GameObject boomEffect;
-    public GameObject doubleBoomEffect;
     
     private void Start()
     {
-        if (PlayerPrefs.HasKey("bestScoresKey")) { 
-            _bestScores = PlayerPrefs.GetInt("bestScoresKey");
-            bestScoresText.GetComponent<Text>().text = _bestScores.ToString();
-        } else {
-            _bestScores = 0;
-            PlayerPrefs.SetInt("bestScoresKey", 0);
-            PlayerPrefs.Save();
-        }
-
+        height = width + width - 2;
+        var mainCamera = FindObjectOfType<Camera>();
+        mainCamera.transform.position = new Vector3((float)width / 2 - 0.5f, y: width-1,z: -10);
+        mainCamera.orthographicSize = width;
         _chain = new List<Vector2Int>();
         allTiles = new GameObject[width, height];
         allDots = new GameObject[width, height];
@@ -141,23 +135,18 @@ public class BoardManager : MonoBehaviour
                 _scores += 30;
                 var effect = Instantiate(doubleBoomEffect, new Vector2(_chain[_chain.Count - 1].x, _chain[_chain.Count - 1].y), Quaternion.identity);
                 DoubleBoom(_chain[_chain.Count - 1]);
-                Destroy(effect, 2.0f);
+                Destroy(effect, 3000.0f);
             }
             else
             {
                 _scores += 10;
                 var effect = Instantiate(boomEffect, new Vector2(_chain[_chain.Count - 1].x, _chain[_chain.Count - 1].y), Quaternion.identity);
                 Boom(_chain[_chain.Count - 1]);
-                Destroy(effect, 2.0f);
+                Destroy(effect, 3000.0f);
             }
         }
 
-        scoresText.GetComponent<Text>().text = _scores.ToString();
-        if (_scores > _bestScores) {
-            bestScoresText.GetComponent<Text>().text = _scores.ToString();
-            PlayerPrefs.SetInt("bestScoresKey", Convert.ToInt32(_scores.ToString()));
-            PlayerPrefs.Save();
-        }
+        recordUI.ChangeScores(_scores);
         foreach (Vector2Int element in _chain) {
             int x = element.x;
             int y = element.y;
@@ -267,10 +256,10 @@ public class BoardManager : MonoBehaviour
                         }
                         else
                         {
-                            int dotToUse = Random.Range(0, bonusessPrefab.Length);
-                            dot = Instantiate(bonusessPrefab[dotToUse], tempPosition, Quaternion.identity);
+                            int dotToUse = Random.Range(0, bonusesPrefab.Length);
+                            dot = Instantiate(bonusesPrefab[dotToUse], tempPosition, Quaternion.identity);
                             dot.transform.parent = transform;
-                            dot.name = "( Bonus " + bonusessPrefab[dotToUse].name + ": " + i + ", " + u + " )";
+                            dot.name = "( Bonus " + bonusesPrefab[dotToUse].name + ": " + i + ", " + u + " )";
                             allDots[i, u] = dot;
                         }
                         StartCoroutine(DownSlowFall(allDots[i, u], new Vector3(i, u, 0)));
@@ -333,6 +322,7 @@ public class BoardManager : MonoBehaviour
         _chain.Clear();
     }
 
+    
     public int GetChainCount()
     {
         return _chain.Count;
