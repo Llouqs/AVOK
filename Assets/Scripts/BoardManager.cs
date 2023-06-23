@@ -335,7 +335,7 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    private void DrawBoobArea(Vector2Int boomElement)
+    private void DrawBoomArea(Vector2Int boomElement)
     {
         if (IsValidPosition(boomElement))
         {
@@ -346,11 +346,11 @@ public class BoardManager : MonoBehaviour
     {
         int x = boomElement.x;
         int y = boomElement.y;
-        DrawBoobArea(new Vector2Int(x, y));
-        DrawBoobArea(new Vector2Int(x - 1, y));
-        DrawBoobArea(new Vector2Int(x + 1, y));
-        DrawBoobArea(new Vector2Int(x, y - 1));
-        DrawBoobArea(new Vector2Int(x, y + 1));
+        DrawBoomArea(new Vector2Int(x, y));
+        DrawBoomArea(new Vector2Int(x - 1, y));
+        DrawBoomArea(new Vector2Int(x + 1, y));
+        DrawBoomArea(new Vector2Int(x, y - 1));
+        DrawBoomArea(new Vector2Int(x, y + 1));
     }
     private void  _ShowDoubleBoom(Vector2Int boomElement)
     {
