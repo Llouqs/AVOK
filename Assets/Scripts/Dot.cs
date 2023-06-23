@@ -44,8 +44,7 @@ public class Dot : MonoBehaviour
             yield return new WaitForSeconds(.015f);
         }
     }
-    
-    
+
     private bool IsEqualDots()
     {
         if (!Input.GetMouseButton(0) && _previosSelectedDot == null) return false;

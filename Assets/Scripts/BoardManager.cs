@@ -9,8 +9,9 @@ public class BoardManager : MonoBehaviour
     [SerializeField] private GameObject[] dotsPrefab;
     [SerializeField] private GameObject[] bonusesPrefab;
     [SerializeField] private GameObject linePrefab;
-    [SerializeField] private GameObject boomEffect;
-    [SerializeField] private GameObject doubleBoomEffect;
+    [SerializeField] private GameObject boomEffectPrefab;
+    [SerializeField] private GameObject doubleBoomEffectPrefab;
+    [SerializeField] private GameObject boomAreaPrefab;
     
     [SerializeField] private int width, height; //размер поля в элементах
 
@@ -21,16 +22,18 @@ public class BoardManager : MonoBehaviour
     public GameObject[,] allDots;
     public List<GameObject> allLines;
     private List<Vector2Int> _chain;
+    private GameObject[,] _boomPool;
     
     private void Start()
     {
         height = width + width - 2;
         var mainCamera = FindObjectOfType<Camera>();
         mainCamera.transform.position = new Vector3((float)width / 2 - 0.5f, y: width-1,z: -10);
-        mainCamera.orthographicSize = width;
+        mainCamera.orthographicSize = width + 1.5f;
         _chain = new List<Vector2Int>();
         allTiles = new GameObject[width, height];
         allDots = new GameObject[width, height];
+        _boomPool = new GameObject[width, height];
         SetUp();
     }
 
@@ -110,8 +113,19 @@ public class BoardManager : MonoBehaviour
             for (int j = 0; j < height; j++) {
                 NewTile(i, j);
                 NewDot(i, j);
+                SetBoomArea(i, j);
             }
         }
+    }
+
+    private void SetBoomArea(int i, int j)
+    {
+        Vector2 tempPosition = new Vector2(i, j);
+        GameObject boomLight = Instantiate(boomAreaPrefab, tempPosition, Quaternion.identity);
+        boomLight.transform.parent = transform;
+        boomLight.name = "( Boom Light: " + i + ", " + j + " )";
+        _boomPool[i, j] = boomLight;
+        _boomPool[i, j].SetActive(false);
     }
 
     public void DestroyChain()
@@ -133,16 +147,16 @@ public class BoardManager : MonoBehaviour
             if (_chain.Count >= 10)
             {
                 _scores += 30;
-                var effect = Instantiate(doubleBoomEffect, new Vector2(_chain[_chain.Count - 1].x, _chain[_chain.Count - 1].y), Quaternion.identity);
+                var effect = Instantiate(doubleBoomEffectPrefab, new Vector2(_chain[_chain.Count - 1].x, _chain[_chain.Count - 1].y), Quaternion.identity);
                 DoubleBoom(_chain[_chain.Count - 1]);
-                Destroy(effect, 3000.0f);
+                Destroy(effect, 2.0f);
             }
             else
             {
                 _scores += 10;
-                var effect = Instantiate(boomEffect, new Vector2(_chain[_chain.Count - 1].x, _chain[_chain.Count - 1].y), Quaternion.identity);
+                var effect = Instantiate(boomEffectPrefab, new Vector2(_chain[_chain.Count - 1].x, _chain[_chain.Count - 1].y), Quaternion.identity);
                 Boom(_chain[_chain.Count - 1]);
-                Destroy(effect, 3000.0f);
+                Destroy(effect, 2.0f);
             }
         }
 
@@ -156,6 +170,11 @@ public class BoardManager : MonoBehaviour
                 Debug.Log("Desrtoyed: (" + x + ", " + y + ")");
                 Destroy(allDots[x, y]);
                 allDots[x, y] = null;
+                if (allTiles[x, y] != null)
+                {
+                    Destroy(allTiles[x, y]);
+                    allTiles[x, y] = null;
+                }
             }
         }
         foreach (var obj in allLines)
@@ -163,54 +182,53 @@ public class BoardManager : MonoBehaviour
             Destroy(obj);
         }
         allLines.Clear();
+        ClearBoom();
     }
 
     private void Boom(Vector2Int boomElement)
     {
         int x = boomElement.x;
         int y = boomElement.y;
-        if (x > 0)
-        {
-            AddToChain(new Vector2Int(x - 1, y));
-        }
-        if (x < width - 1)
-        {
-            AddToChain(new Vector2Int(x+1, y));
-        }
-        if (y > 0)
-        {
-            AddToChain(new Vector2Int(x, y-1));
-        }
-        if (y < height - 1)
-        {
-            AddToChain(new Vector2Int(x, y+1));
-        }
+
+        AddToChainIfValid(new Vector2Int(x - 1, y));
+        AddToChainIfValid(new Vector2Int(x + 1, y));
+        AddToChainIfValid(new Vector2Int(x, y - 1));
+        AddToChainIfValid(new Vector2Int(x, y + 1));
     }
 
     private void DoubleBoom(Vector2Int boomElement)
     {
         int x = boomElement.x;
         int y = boomElement.y;
-        if (x > 0)
+
+        AddToChainAndBoom(new Vector2Int(x - 1, y));
+        AddToChainAndBoom(new Vector2Int(x + 1, y));
+        AddToChainAndBoom(new Vector2Int(x, y - 1));
+        AddToChainAndBoom(new Vector2Int(x, y + 1));
+    }
+
+    private void AddToChainIfValid(Vector2Int position)
+    {
+        if (IsValidPosition(position))
         {
-            AddToChain(new Vector2Int(x - 1, y));
-            Boom(new Vector2Int(x - 1, y));
+            AddToChain(position);
         }
-        if (x < width - 1)
+    }
+
+    private void AddToChainAndBoom(Vector2Int position)
+    {
+        if (IsValidPosition(position))
         {
-            AddToChain(new Vector2Int(x+1, y));
-            Boom(new Vector2Int(x + 1, y));
+            AddToChain(position);
+            Boom(position);
         }
-        if (y > 0)
-        {
-            AddToChain(new Vector2Int(x, y-1));
-            Boom(new Vector2Int(x, y-1));
-        }
-        if (y < height - 1)
-        {
-            AddToChain(new Vector2Int(x, y+1));
-            Boom(new Vector2Int(x, y+1));
-        }
+    }
+
+    private bool IsValidPosition(Vector2Int position)
+    {
+        int x = position.x;
+        int y = position.y;
+        return x >= 0 && x < width && y >= 0 && y < height;
     }
 
     public void UpdateBoard()
@@ -282,6 +300,7 @@ public class BoardManager : MonoBehaviour
 
     public void AddToChain(Vector2Int obj)
     {
+        ClearBoom();
         if (!_chain.Contains(obj))
         {
             allDots[obj.x, obj.y].GetComponent<Dot>().SetState(true);
@@ -292,7 +311,55 @@ public class BoardManager : MonoBehaviour
                 Vector2Int to = new Vector2Int(_chain[_chain.Count-1].x, _chain[_chain.Count-1].y);
                 allLines.Add(NewLine(from, to));
             }
+
+            if (_chain.Count > 6 && _chain.Count < 10)
+            {
+                _ShowBoom(obj);
+            }
+
+            if (_chain.Count >= 10)
+            {
+                _ShowDoubleBoom(obj);
+            }
         }
+    }
+
+    private void ClearBoom()
+    {
+        for (int i = 0; i < width; i++)
+        {
+            for (int j = 0; j < height; j++)
+            {
+                _boomPool[i,j].SetActive(false);
+            }
+        }
+    }
+
+    private void DrawBoobArea(Vector2Int boomElement)
+    {
+        if (IsValidPosition(boomElement))
+        {
+            _boomPool[boomElement.x, boomElement.y].SetActive(true);
+        }
+    }
+    private void _ShowBoom(Vector2Int boomElement)
+    {
+        int x = boomElement.x;
+        int y = boomElement.y;
+        DrawBoobArea(new Vector2Int(x, y));
+        DrawBoobArea(new Vector2Int(x - 1, y));
+        DrawBoobArea(new Vector2Int(x + 1, y));
+        DrawBoobArea(new Vector2Int(x, y - 1));
+        DrawBoobArea(new Vector2Int(x, y + 1));
+    }
+    private void  _ShowDoubleBoom(Vector2Int boomElement)
+    {
+        int x = boomElement.x;
+        int y = boomElement.y;
+        _ShowBoom(new Vector2Int(x - 1, y));
+        _ShowBoom(new Vector2Int(x + 1, y));
+        _ShowBoom(new Vector2Int(x, y - 1));
+        _ShowBoom(new Vector2Int(x, y + 1));
     }
 
     public void RemoveFromChainLast()
