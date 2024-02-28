@@ -234,65 +234,93 @@ public class BoardManager : MonoBehaviour
     {
         for (int i = 0; i < width; i++)
         {
+            List<GameObject> dotsForFall = new List<GameObject>();
+
+            // Сначала добавляем существующие элементы в список для падения
+            for (int j = 0; j < height; j++)
+            {
+                if (allDots[i, j] != null)
+                {
+                    dotsForFall.Add(allDots[i, j]);
+                }
+            }
+
+            // Затем добавляем новые элементы только в свободные места
             for (int j = 0; j < height; j++)
             {
                 if (allDots[i, j] == null)
                 {
-                    List<GameObject> dotsForFall = new List<GameObject>();
-                    for (int c = j; c < height; c++)
+                    Vector2 tmpVector = new Vector2(i, height+j);
+                    GameObject dot;
+                    int dotToUse;
+
+                    if (Random.Range(0, 15) != 0)
                     {
-                        if ((allDots[i, c] != null))
-                        {
-                            dotsForFall.Add(allDots[i, c]);
-                        }
+                        dotToUse = Random.Range(0, dotsPrefab.Length);
+                        dot = Instantiate(dotsPrefab[dotToUse], tmpVector, Quaternion.identity);
+                        dot.name = "( Dot: " + i + ", " + j + " )";
+                    }
+                    else
+                    {
+                        dotToUse = Random.Range(0, bonusesPrefab.Length);
+                        dot = Instantiate(bonusesPrefab[dotToUse], tmpVector, Quaternion.identity);
+                        dot.name = "( Bonus " + bonusesPrefab[dotToUse].name + ": " + i + ", " + j + " )";
                     }
 
-                    int k = j;
-                    foreach (GameObject obj in dotsForFall)
-                    {
-                        Vector3 tmpVector = new Vector3(i, k, 0);
-                        Debug.Log("Vector2 (" + i + ", " + k + ")");
-                        allDots[i, k] = obj;
-                        StartCoroutine(DownSlowFall(allDots[i, k], tmpVector));
-                        k++;
-                    }
-
-                    for (int u = k; u < height; u++)
-                    {
-                        Vector3 tempPosition = new Vector3(i, u + 5, 0); 
-                        GameObject dot;
-                        if (Random.Range(0, 15) != 0)
-                        {
-                            int dotToUse = Random.Range(0, dotsPrefab.Length);
-                            dot = Instantiate(dotsPrefab[dotToUse], tempPosition, Quaternion.identity);
-                            dot.transform.parent = transform;
-                            dot.name = "( Dot: " + i + ", " + u + " )";
-                            allDots[i, u] = dot;
-                        }
-                        else
-                        {
-                            int dotToUse = Random.Range(0, bonusesPrefab.Length);
-                            dot = Instantiate(bonusesPrefab[dotToUse], tempPosition, Quaternion.identity);
-                            dot.transform.parent = transform;
-                            dot.name = "( Bonus " + bonusesPrefab[dotToUse].name + ": " + i + ", " + u + " )";
-                            allDots[i, u] = dot;
-                        }
-                        StartCoroutine(DownSlowFall(allDots[i, u], new Vector3(i, u, 0)));
-                    }
+                    dot.transform.parent = transform;
+                    dotsForFall.Add(dot);
                 }
+            }
+
+            // Помещаем элементы из списка обратно в массив и запускаем падение
+            for (int j = 0; j < height; j++)
+            {
+                allDots[i, j] = dotsForFall[j];
+                StartCoroutine(DownSlowFall(allDots[i, j], new Vector2(i, j)));
             }
         }
     }
-    
-    private IEnumerator DownSlowFall(GameObject obj, Vector3 tmpVector)
+
+
+    IEnumerator DownSlowFall(GameObject dot, Vector2 targetPosition)
     {
-        float yOffset = obj.transform.position.y - tmpVector.y;
-        for (float q = 0; q <= yOffset; q += .1f)
+        float duration = 0.4f;
+        float elapsed = 0f;
+        float bounceDuration = 0.2f; // Длительность подпрыгивания
+        float bounceHeight = 0.1f;   // Высота подпрыгивания
+
+        Vector2 startPosition = dot.transform.position;
+
+        while (elapsed < duration)
         {
-            obj.transform.position += new Vector3(0, -0.1f, 0);
-            yield return new WaitForSeconds(.007f);
+            float t = elapsed / duration;
+            dot.transform.position = Vector2.Lerp(startPosition, targetPosition, t);
+            elapsed += Time.deltaTime;
+
+            yield return null;
         }
-        obj.transform.position = tmpVector;
+
+        dot.transform.position = targetPosition;
+
+        // Проверяем, что элемент действительно упал
+        if (targetPosition.y < startPosition.y)
+        {
+            // Эффект подпрыгивания
+            float bounceElapsed = 0f;
+            Vector2 initialPosition = dot.transform.position;
+
+            while (bounceElapsed < bounceDuration)
+            {
+                float bounceT = bounceElapsed / bounceDuration;
+                float yOffset = Mathf.Sin(bounceT * Mathf.PI) * bounceHeight;
+                dot.transform.position = new Vector2(targetPosition.x, initialPosition.y + yOffset);
+
+                bounceElapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            dot.transform.position = targetPosition; // Устанавливаем точно на целевую позицию
+        }
     }
 
     public void AddToChain(Vector2Int obj)
@@ -369,7 +397,7 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    public bool IsPreviosDot(Vector2Int dotPos)
+    public bool IsPreviousDot(Vector2Int dotPos)
     {
         return _chain.IndexOf(dotPos) == _chain.Count - 2 ? true : false;
     }
