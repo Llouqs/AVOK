@@ -9,9 +9,10 @@ public class Dot : MonoBehaviour
     private static readonly Color SelectedColor = new Color(.5f, .5f, .5f, 1.0f);
     private static Dot previousSelectedDot;
     private static BoardManager boardManager;
-    [SerializeField] private Vector2Int dotPosition;
 
+    [SerializeField] private Vector2Int dotPosition;
     [SerializeField] private GameObject effect;
+    [SerializeField] private GameObject boomLight;
     [SerializeField] private Sprite[] equalDots;
 
     private static bool isBoardUpdating = false;
@@ -21,7 +22,11 @@ public class Dot : MonoBehaviour
         boardManager.BoardUpdated += OnBoardUpdated;
         spriteRenderer = GetComponent<SpriteRenderer>();
         dotTransform = GetComponent<Transform>();
-        //dotPosition = new Vector2Int(Mathf.RoundToInt(transform.position.x), Mathf.RoundToInt(transform.position.y));
+    }
+
+    public void SetBoomLight(bool flag)
+    {
+        boomLight.SetActive(flag);
     }
 
     public Vector2Int DotPosition
@@ -144,6 +149,7 @@ public class Dot : MonoBehaviour
     public void StartEffect()
     {
         var effectObj = Instantiate(effect, dotTransform.position, Quaternion.identity);
+        effectObj.transform.parent = boardManager.transform;
         Destroy(effectObj, 3.0f);
     }
 }

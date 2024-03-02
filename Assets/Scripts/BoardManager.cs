@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Random = UnityEngine.Random;
 using System;
+using System.Linq;
 
 public class BoardManager : MonoBehaviour
 {
@@ -12,7 +13,6 @@ public class BoardManager : MonoBehaviour
     [SerializeField] private GameObject linePrefab;
     [SerializeField] private GameObject boomEffectPrefab;
     [SerializeField] private GameObject doubleBoomEffectPrefab;
-    [SerializeField] private GameObject boomAreaPrefab;
     
     [SerializeField] private int width, height; 
 
@@ -23,7 +23,6 @@ public class BoardManager : MonoBehaviour
     public Dot[,] allDots;
     public List<GameObject> allLines;
     private List<Dot> _chain;
-    private GameObject[,] _boomPool;
     public event Action BoardUpdated;
 
     private void Start()
@@ -44,14 +43,13 @@ public class BoardManager : MonoBehaviour
         _chain = new List<Dot>();
         allTiles = new GameObject[width, height];
         allDots = new Dot[width, height];
-        _boomPool = new GameObject[width, height];
     }
     private void NewTile(int i, int j)
     {
         Vector2 tempPosition = new Vector2(i, j);
         GameObject tile = Instantiate(tilePrefab, tempPosition, Quaternion.identity);
         tile.transform.parent = transform;
-        tile.name = "( Tile: " + i + ", " + j + " )";
+        tile.name = $"( Tile: {i}, {j} )";
         allTiles[i, j] = tile;
     }
 
@@ -61,11 +59,10 @@ public class BoardManager : MonoBehaviour
         int dotToUse = Random.Range(0, dotsPrefab.Length);
         GameObject dot = Instantiate(dotsPrefab[dotToUse], tempPosition, Quaternion.identity);
         dot.transform.parent = transform;
-        dot.name = "( Dot: " + i + ", " + j + " )";
+        dot.name = $"( Dot: {i}, {j} )";
         allDots[i, j] = dot.GetComponent<Dot>();
         allDots[i, j].DotPosition = new Vector2Int(i, j);
     }
-
     private GameObject NewLine(Vector2Int from, Vector2Int to)
     {
         //Debug.Log(from + ", " + to);
@@ -124,20 +121,10 @@ public class BoardManager : MonoBehaviour
             for (int j = 0; j < height; j++) {
                 NewTile(i, j);
                 NewDot(i, j);
-                SetBoomArea(i, j);
             }
         }
     }
 
-    private void SetBoomArea(int i, int j)
-    {
-        Vector2 tempPosition = new Vector2(i, j);
-        GameObject boomLight = Instantiate(boomAreaPrefab, tempPosition, Quaternion.identity);
-        boomLight.transform.parent = transform;
-        boomLight.name = "( Boom Light: " + i + ", " + j + " )";
-        _boomPool[i, j] = boomLight;
-        _boomPool[i, j].SetActive(false);
-    }
 
     public void DestroyChain()
     {
@@ -162,7 +149,6 @@ public class BoardManager : MonoBehaviour
 
             GameObject effectPrefab = (chainCount >= 10) ? doubleBoomEffectPrefab : boomEffectPrefab;
             var effect = Instantiate(effectPrefab, _chain[chainCount - 1].transform.position, Quaternion.identity);
-
             if (chainCount >= 10)
             {
                 DoubleBoom(_chain[chainCount - 1].DotPosition);
@@ -176,7 +162,7 @@ public class BoardManager : MonoBehaviour
         }
 
         recordUI.ChangeScores(_scores);
-
+        ClearBoom();
         foreach (Dot dot in _chain)
         {
             DestroyDot(dot);
@@ -188,7 +174,6 @@ public class BoardManager : MonoBehaviour
         }
 
         allLines.Clear();
-        ClearBoom();
     }
 
     private void DestroyDot(Dot dot)
@@ -196,10 +181,9 @@ public class BoardManager : MonoBehaviour
         int x = dot.DotPosition.x;
         int y = dot.DotPosition.y;
 
-        if (allDots[x, y].IsSelected)
+        if (allDots[x, y] != null && allDots[x, y].IsSelected)
         {
             Dot currentDot = allDots[x, y];
-
             currentDot.StartEffect();
             Destroy(currentDot.gameObject);
             allDots[x, y] = null;
@@ -264,7 +248,6 @@ public class BoardManager : MonoBehaviour
     private IEnumerator UpdateBoardWithDelay()
     {
         yield return new WaitForSeconds(0.15f);
-        Debug.Log("yes");
         for (int i = 0; i < width; i++)
         {
             List<Dot> dotsForFall = new List<Dot>();
@@ -278,7 +261,7 @@ public class BoardManager : MonoBehaviour
                 }
             }
 
-            // Затем добавляем новые элементы только в свободные места
+            // Помещаем элементы из списка обратно в массив и запускаем падение
             for (int j = 0; j < height; j++)
             {
                 if (allDots[i, j] == null)
@@ -288,15 +271,10 @@ public class BoardManager : MonoBehaviour
                     dot.transform.parent = transform;
                     dotsForFall.Add(dot.GetComponent<Dot>());
                 }
-            }
-
-            // Помещаем элементы из списка обратно в массив и запускаем падение
-            for (int j = 0; j < height; j++)
-            {
                 dotsForFall[j].DotPosition = new Vector2Int(i, j);
                 allDots[i, j] = dotsForFall[j];
+                allDots[i, j].name = $"( Dot: {i}, {j} )";
                 StartCoroutine(DownSlowFall(allDots[i, j], new Vector2(i, j)));
-                allDots[i, j].name = "( Dot: " + i + ", " + j + " )";
             }
         }
         BoardUpdated?.Invoke();
@@ -375,18 +353,30 @@ public class BoardManager : MonoBehaviour
         {
             for (int j = 0; j < height; j++)
             {
-                _boomPool[i,j].SetActive(false);
+                if (allDots[i,j]!=null)
+                {
+                    allDots[i, j].SetBoomLight(false);
+                }
             }
         }
     }
-
     private void DrawBoomArea(Vector2Int boomElement)
     {
         if (IsValidPosition(boomElement))
         {
-            _boomPool[boomElement.x, boomElement.y].SetActive(true);
+            allDots[boomElement.x, boomElement.y].SetBoomLight(true);
         }
     }
+
+    private void _ShowVerticalBonus(Vector2Int boomElement)
+    {
+        if (IsValidPosition(boomElement))
+            for (int j = 0; j < height; j++)
+            {
+                allDots[boomElement.x, boomElement.y].SetBoomLight(true);
+            }
+    }
+
     private void _ShowBoom(Vector2Int boomElement)
     {
         int x = boomElement.x;
@@ -434,7 +424,6 @@ public class BoardManager : MonoBehaviour
         _chain.Clear();
     }
 
-    
     public int GetChainCount()
     {
         return _chain.Count;
