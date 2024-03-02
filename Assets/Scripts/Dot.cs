@@ -8,28 +8,29 @@ public class Dot : MonoBehaviour
     private Transform dotTransform;
     private static readonly Color SelectedColor = new Color(.5f, .5f, .5f, 1.0f);
     private static Dot previousSelectedDot;
-    private bool isSelected;
     private static BoardManager boardManager;
+    [SerializeField] private Vector2Int dotPosition;
 
     [SerializeField] private GameObject effect;
     [SerializeField] private Sprite[] equalDots;
 
+    private static bool isBoardUpdating = false;
     private void Start()
     {
         boardManager = FindObjectOfType<BoardManager>();
+        boardManager.BoardUpdated += OnBoardUpdated;
         spriteRenderer = GetComponent<SpriteRenderer>();
         dotTransform = GetComponent<Transform>();
+        //dotPosition = new Vector2Int(Mathf.RoundToInt(transform.position.x), Mathf.RoundToInt(transform.position.y));
     }
 
-    public void SetState(bool state)
+    public Vector2Int DotPosition
     {
-        isSelected = state;
+        get { return dotPosition; }
+        set { dotPosition = value; }
     }
 
-    public bool GetState()
-    {
-        return isSelected;
-    }
+    public bool IsSelected { get; set; }
 
     private IEnumerator UpSlowScale()
     {
@@ -51,7 +52,7 @@ public class Dot : MonoBehaviour
 
     private bool IsEqualDots()
     {
-        if (!Input.GetMouseButton(0) && previousSelectedDot == null) return false;
+        if (!Input.GetMouseButton(0) || previousSelectedDot == null || previousSelectedDot.spriteRenderer == null) return false;
         return equalDots.Contains(previousSelectedDot.spriteRenderer.sprite);
     }
 
@@ -66,10 +67,9 @@ public class Dot : MonoBehaviour
     private void OnMouseEnter()
     {
         if (!IsEqualDots() || !IsNeighbourToPrevious()) return;
-        if (this.GetState())
+        if (IsSelected)
         {
-            if (boardManager.IsPreviousDot(new Vector2Int((int)dotTransform.position.x,
-                (int)dotTransform.position.y)))
+            if (boardManager.IsPreviousDot(this))
             {
                 SetSelected();
                 previousSelectedDot.SetSelected();
@@ -86,22 +86,29 @@ public class Dot : MonoBehaviour
         previousSelectedDot = this;
 
         SetSelected();
-        AddDotChain(new Vector2Int((int)dotTransform.position.x,
-            (int)dotTransform.position.y));
+        boardManager.AddToChain(this);
     }
 
     private void OnMouseExit()
     {
-        if (this.GetState())
+        if (IsSelected)
             StartCoroutine(DownSlowScale());
     }
 
     private void OnMouseDown()
     {
-        if (previousSelectedDot != null) return;
+        if (previousSelectedDot != null || isBoardUpdating) return;
         previousSelectedDot = this;
         SetSelected();
-        AddDotChain(new Vector2Int((int)dotTransform.position.x, (int)dotTransform.position.y));
+        boardManager.AddToChain(this);
+    }
+
+    private void OnBoardUpdated()
+    {
+        // Выполните действия после обновления доски
+        boardManager.ChainClear();
+        previousSelectedDot = null;
+        isBoardUpdating = false;
     }
 
     private void OnMouseUp()
@@ -109,15 +116,18 @@ public class Dot : MonoBehaviour
         boardManager.DestroyChain();
         if (boardManager.GetChainCount() > 2)
         {
+            isBoardUpdating = true;
             boardManager.UpdateBoard();
         }
-        boardManager.ChainClear();
-        previousSelectedDot = null;
+        else
+        {
+            OnBoardUpdated();
+        }
     }
 
     public void SetSelected()
     {
-        if (isSelected)
+        if (IsSelected)
         {
             spriteRenderer.color = Color.white;
             StartCoroutine(DownSlowScale());
@@ -127,13 +137,9 @@ public class Dot : MonoBehaviour
             spriteRenderer.color = SelectedColor;
             StartCoroutine(UpSlowScale());
         }
-        isSelected = !isSelected;
+        IsSelected = !IsSelected;
     }
 
-    private void AddDotChain(Vector2Int tmp)
-    {
-        boardManager.AddToChain(tmp);
-    }
 
     public void StartEffect()
     {

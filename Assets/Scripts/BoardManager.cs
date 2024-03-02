@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using Random = UnityEngine.Random;
+using System;
 
 public class BoardManager : MonoBehaviour
 {
@@ -19,24 +20,32 @@ public class BoardManager : MonoBehaviour
     [SerializeField] private Record recordUI;
     
     public GameObject[,] allTiles;
-    public GameObject[,] allDots;
+    public Dot[,] allDots;
     public List<GameObject> allLines;
-    private List<Vector2Int> _chain;
+    private List<Dot> _chain;
     private GameObject[,] _boomPool;
-    
+    public event Action BoardUpdated;
+
     private void Start()
     {
-        height = width + width - 5; //временная заглушка для размера
-        var mainCamera = FindObjectOfType<Camera>();
-        mainCamera.transform.position = new Vector3((float)width / 2 - 0.5f, y: width-1,z: -10);
-        mainCamera.orthographicSize = width + 1.5f;
-        _chain = new List<Vector2Int>();
-        allTiles = new GameObject[width, height];
-        allDots = new GameObject[width, height];
-        _boomPool = new GameObject[width, height];
+        InitializeCamera();
+        InitializeGameData();
         SetUp();
     }
-
+    private void InitializeCamera()
+    {
+        var mainCamera = FindObjectOfType<Camera>();
+        mainCamera.transform.position = new Vector3((float)width / 2 - 0.5f, width - 1, -10);
+        mainCamera.orthographicSize = width + 1.5f;
+    }
+    private void InitializeGameData()
+    {
+        height = width + width - 5; // временная заглушка для размера
+        _chain = new List<Dot>();
+        allTiles = new GameObject[width, height];
+        allDots = new Dot[width, height];
+        _boomPool = new GameObject[width, height];
+    }
     private void NewTile(int i, int j)
     {
         Vector2 tempPosition = new Vector2(i, j);
@@ -53,11 +62,13 @@ public class BoardManager : MonoBehaviour
         GameObject dot = Instantiate(dotsPrefab[dotToUse], tempPosition, Quaternion.identity);
         dot.transform.parent = transform;
         dot.name = "( Dot: " + i + ", " + j + " )";
-        allDots[i, j] = dot;
+        allDots[i, j] = dot.GetComponent<Dot>();
+        allDots[i, j].DotPosition = new Vector2Int(i, j);
     }
 
     private GameObject NewLine(Vector2Int from, Vector2Int to)
     {
+        //Debug.Log(from + ", " + to);
         float z=0f;
         Vector2 tempPosition;
         Vector2Int direction = new Vector2Int(from.x-to.x, from.y-to.y);
@@ -130,59 +141,75 @@ public class BoardManager : MonoBehaviour
 
     public void DestroyChain()
     {
-        if (_chain.Count == 1)
+        int chainCount = _chain.Count;
+
+        if (chainCount <= 2)
         {
-            return;
-        }
-        if (_chain.Count == 2)
-        {
-            Destroy(allLines[0]);
-            allLines.RemoveAt(0);
-            return;
-        }
-        _scores += _chain.Count;
-        
-        if (_chain.Count >= 7)
-        {
-            if (_chain.Count >= 10)
+            if (chainCount == 2)
             {
-                _scores += 30;
-                var effect = Instantiate(doubleBoomEffectPrefab, new Vector2(_chain[_chain.Count - 1].x, _chain[_chain.Count - 1].y), Quaternion.identity);
-                DoubleBoom(_chain[_chain.Count - 1]);
-                Destroy(effect, 2.0f);
+                Destroy(allLines[0]);
+                allLines.RemoveAt(0);
+            }
+            return;
+        }
+
+        _scores += chainCount;
+
+        if (chainCount >= 7)
+        {
+            int bonusScore = (chainCount >= 10) ? 30 : 10;
+            _scores += bonusScore;
+
+            GameObject effectPrefab = (chainCount >= 10) ? doubleBoomEffectPrefab : boomEffectPrefab;
+            var effect = Instantiate(effectPrefab, _chain[chainCount - 1].transform.position, Quaternion.identity);
+
+            if (chainCount >= 10)
+            {
+                DoubleBoom(_chain[chainCount - 1].DotPosition);
             }
             else
             {
-                _scores += 10;
-                var effect = Instantiate(boomEffectPrefab, new Vector2(_chain[_chain.Count - 1].x, _chain[_chain.Count - 1].y), Quaternion.identity);
-                Boom(_chain[_chain.Count - 1]);
-                Destroy(effect, 2.0f);
+                Boom(_chain[chainCount - 1].DotPosition);
             }
+
+            Destroy(effect, 2.0f);
         }
 
         recordUI.ChangeScores(_scores);
-        foreach (Vector2Int element in _chain) {
-            int x = element.x;
-            int y = element.y;
-            if (allDots[x, y].GetComponent<Dot>().GetState())
-            {
-                allDots[x, y].GetComponent<Dot>().StartEffect();
-                Debug.Log("Desrtoyed: (" + x + ", " + y + ")");
-                Destroy(allDots[x, y]);
-                allDots[x, y] = null;
-                if (allTiles[x, y] != null)
-                {
-                    Destroy(allTiles[x, y]);
-                    allTiles[x, y] = null;
-                }
-            }
-        }
-        foreach (var obj in allLines)
+
+        foreach (Dot dot in _chain)
         {
-            Destroy(obj);
+            DestroyDot(dot);
         }
+
+        foreach (var line in allLines)
+        {
+            Destroy(line);
+        }
+
         allLines.Clear();
         ClearBoom();
+    }
+
+    private void DestroyDot(Dot dot)
+    {
+        int x = dot.DotPosition.x;
+        int y = dot.DotPosition.y;
+
+        if (allDots[x, y].IsSelected)
+        {
+            Dot currentDot = allDots[x, y];
+
+            currentDot.StartEffect();
+            Destroy(currentDot.gameObject);
+            allDots[x, y] = null;
+
+            if (allTiles[x, y] != null)
+            {
+                Destroy(allTiles[x, y]);
+                allTiles[x, y] = null;
+            }
+        }
     }
 
     private void Boom(Vector2Int boomElement)
@@ -207,20 +234,20 @@ public class BoardManager : MonoBehaviour
         AddToChainAndBoom(new Vector2Int(x, y + 1));
     }
 
-    private void AddToChainIfValid(Vector2Int position)
+    private void AddToChainIfValid(Vector2Int dotPosition)
     {
-        if (IsValidPosition(position))
+        if (IsValidPosition(dotPosition))
         {
-            AddToChain(position);
+            AddToChain(allDots[dotPosition.x, dotPosition.y]);
         }
     }
 
-    private void AddToChainAndBoom(Vector2Int position)
+    private void AddToChainAndBoom(Vector2Int dotPosition)
     {
-        if (IsValidPosition(position))
+        if (IsValidPosition(dotPosition))
         {
-            AddToChain(position);
-            Boom(position);
+            AddToChain(allDots[dotPosition.x, dotPosition.y]);
+            Boom(dotPosition);
         }
     }
 
@@ -229,12 +256,18 @@ public class BoardManager : MonoBehaviour
         return  position.x >= 0 && position.x < width &&
                 position.y >= 0 && position.y < height;
     }
-
     public void UpdateBoard()
     {
+        StartCoroutine(UpdateBoardWithDelay());
+    }
+
+    private IEnumerator UpdateBoardWithDelay()
+    {
+        yield return new WaitForSeconds(0.15f);
+        Debug.Log("yes");
         for (int i = 0; i < width; i++)
         {
-            List<GameObject> dotsForFall = new List<GameObject>();
+            List<Dot> dotsForFall = new List<Dot>();
 
             // Сначала добавляем существующие элементы в список для падения
             for (int j = 0; j < height; j++)
@@ -250,39 +283,27 @@ public class BoardManager : MonoBehaviour
             {
                 if (allDots[i, j] == null)
                 {
-                    Vector2 tmpVector = new Vector2(i, height+j);
-                    GameObject dot;
-                    int dotToUse;
-
-                    if (Random.Range(0, 15) != 0)
-                    {
-                        dotToUse = Random.Range(0, dotsPrefab.Length);
-                        dot = Instantiate(dotsPrefab[dotToUse], tmpVector, Quaternion.identity);
-                        dot.name = "( Dot: " + i + ", " + j + " )";
-                    }
-                    else
-                    {
-                        dotToUse = Random.Range(0, bonusesPrefab.Length);
-                        dot = Instantiate(bonusesPrefab[dotToUse], tmpVector, Quaternion.identity);
-                        dot.name = "( Bonus " + bonusesPrefab[dotToUse].name + ": " + i + ", " + j + " )";
-                    }
-
+                    Vector2 tmpVector = new Vector2(i, height + j);
+                    GameObject dot = Instantiate(Random.Range(0, 15) != 0 ? dotsPrefab[Random.Range(0, dotsPrefab.Length)] : bonusesPrefab[Random.Range(0, bonusesPrefab.Length)], tmpVector, Quaternion.identity);
                     dot.transform.parent = transform;
-                    dotsForFall.Add(dot);
+                    dotsForFall.Add(dot.GetComponent<Dot>());
                 }
             }
 
             // Помещаем элементы из списка обратно в массив и запускаем падение
             for (int j = 0; j < height; j++)
             {
+                dotsForFall[j].DotPosition = new Vector2Int(i, j);
                 allDots[i, j] = dotsForFall[j];
                 StartCoroutine(DownSlowFall(allDots[i, j], new Vector2(i, j)));
+                allDots[i, j].name = "( Dot: " + i + ", " + j + " )";
             }
         }
+        BoardUpdated?.Invoke();
     }
 
 
-    IEnumerator DownSlowFall(GameObject dot, Vector2 targetPosition)
+    IEnumerator DownSlowFall(Dot dot, Vector2 targetPosition)
     {
         float duration = 0.4f;
         float elapsed = 0f;
@@ -318,33 +339,32 @@ public class BoardManager : MonoBehaviour
                 bounceElapsed += Time.deltaTime;
                 yield return null;
             }
-
             dot.transform.position = targetPosition; // Устанавливаем точно на целевую позицию
         }
     }
 
-    public void AddToChain(Vector2Int obj)
+    public void AddToChain(Dot dot)
     {
         ClearBoom();
-        if (!_chain.Contains(obj))
+        if (!_chain.Contains(dot))
         {
-            allDots[obj.x, obj.y].GetComponent<Dot>().SetState(true);
-            _chain.Add(obj);
+            dot.IsSelected = true;
+            _chain.Add(dot);
             if (_chain.Count > 1)
             {
-                Vector2Int from = new Vector2Int(_chain[_chain.Count-2].x, _chain[_chain.Count-2].y);
-                Vector2Int to = new Vector2Int(_chain[_chain.Count-1].x, _chain[_chain.Count-1].y);
+                Vector2Int from = _chain[_chain.Count - 2].DotPosition;
+                Vector2Int to = _chain[_chain.Count - 1].DotPosition;
                 allLines.Add(NewLine(from, to));
             }
 
             if (_chain.Count > 6 && _chain.Count < 10)
             {
-                _ShowBoom(obj);
+                _ShowBoom(dot.DotPosition);
             }
 
             if (_chain.Count >= 10)
             {
-                _ShowDoubleBoom(obj);
+                _ShowDoubleBoom(dot.DotPosition);
             }
         }
     }
@@ -397,19 +417,19 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    public bool IsPreviousDot(Vector2Int dotPos)
+    public bool IsPreviousDot(Dot dot)
     {
-        return _chain.IndexOf(dotPos) == _chain.Count - 2 ? true : false;
+        return _chain.IndexOf(dot) == _chain.Count - 2 ? true : false;
     }
 
     public void ChainClear()
     {
-        foreach(Vector2Int element in _chain)
+        foreach(Dot element in _chain)
         {
-            int x = element.x;
-            int y = element.y;
-            if (allDots[x, y].GetComponent<Dot>().GetState())
-                allDots[x, y].GetComponent<Dot>().SetSelected();
+            int x = element.DotPosition.x;
+            int y = element.DotPosition.y;
+            if (allDots[x, y].IsSelected)
+                allDots[x, y].SetSelected();
         }
         _chain.Clear();
     }
