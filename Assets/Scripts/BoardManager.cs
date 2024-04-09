@@ -1,12 +1,26 @@
 ﻿using UnityEngine;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Random = UnityEngine.Random;
-using System;
-using System.Linq;
+using System.Linq.Expressions;
+public enum TileKind
+{
+    Breakable,
+    Blank,
+    Normal
+}
 
+[System.Serializable]
+public class TileType
+{
+    public int x;
+    public int y;
+    public TileKind tileKind; 
+}
 public class BoardManager : MonoBehaviour
 {
+    [SerializeField] private TileType[] boardLayout;
     [SerializeField] private GameObject tilePrefab;
     [SerializeField] private GameObject[] dotsPrefab;
     [SerializeField] private GameObject[] bonusesPrefab;
@@ -115,6 +129,10 @@ public class BoardManager : MonoBehaviour
         return line; 
     }
 
+    public void GenerateBlankSpaces()
+    {
+
+    }
     private void SetUp()
     {
         for (int i = 0; i < width; i++) {
@@ -132,6 +150,7 @@ public class BoardManager : MonoBehaviour
 
         if (chainCount <= 2)
         {
+            ClearBoom();
             if (chainCount == 2)
             {
                 Destroy(allLines[0]);
@@ -293,9 +312,8 @@ public class BoardManager : MonoBehaviour
         while (elapsed < duration)
         {
             float t = elapsed / duration;
-            dot.transform.position = Vector2.Lerp(startPosition, targetPosition, t);
+            dot.transform.position = Vector2.MoveTowards(startPosition, targetPosition, t * Vector2.Distance(startPosition, targetPosition));
             elapsed += Time.deltaTime;
-
             yield return null;
         }
 
@@ -337,12 +355,19 @@ public class BoardManager : MonoBehaviour
 
             if (_chain.Count > 6 && _chain.Count < 10)
             {
-                _ShowBoom(dot.DotPosition);
+                ShowBoom(dot.DotPosition);
             }
 
             if (_chain.Count >= 10)
             {
-                _ShowDoubleBoom(dot.DotPosition);
+                ShowDoubleBoom(dot.DotPosition);
+            }
+            foreach (Dot elem in _chain)
+            {
+                if (elem.DotKind == DotKind.WaterVerticalBonus)
+                {
+                    ShowVerticalBonus(dot.DotPosition);
+                }
             }
         }
     }
@@ -368,16 +393,16 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    private void _ShowVerticalBonus(Vector2Int boomElement)
+    private void ShowVerticalBonus(Vector2Int boomElement) // пока только показываем :)
     {
         if (IsValidPosition(boomElement))
             for (int j = 0; j < height; j++)
             {
-                allDots[boomElement.x, boomElement.y].SetBoomLight(true);
+                allDots[boomElement.x, j].SetBoomLight(true);
             }
     }
 
-    private void _ShowBoom(Vector2Int boomElement)
+    private void ShowBoom(Vector2Int boomElement)
     {
         int x = boomElement.x;
         int y = boomElement.y;
@@ -387,14 +412,14 @@ public class BoardManager : MonoBehaviour
         DrawBoomArea(new Vector2Int(x, y - 1));
         DrawBoomArea(new Vector2Int(x, y + 1));
     }
-    private void  _ShowDoubleBoom(Vector2Int boomElement)
+    private void ShowDoubleBoom(Vector2Int boomElement)
     {
         int x = boomElement.x;
         int y = boomElement.y;
-        _ShowBoom(new Vector2Int(x - 1, y));
-        _ShowBoom(new Vector2Int(x + 1, y));
-        _ShowBoom(new Vector2Int(x, y - 1));
-        _ShowBoom(new Vector2Int(x, y + 1));
+        ShowBoom(new Vector2Int(x - 1, y));
+        ShowBoom(new Vector2Int(x + 1, y));
+        ShowBoom(new Vector2Int(x, y - 1));
+        ShowBoom(new Vector2Int(x, y + 1));
     }
 
     public void RemoveFromChainLast()

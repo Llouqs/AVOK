@@ -2,6 +2,17 @@
 using System.Linq;
 using UnityEngine;
 
+[System.Serializable]
+public enum DotKind
+{
+    Fire,
+    Water,
+    Leaf,
+    Moon,
+    Sun,
+    Eclipse,
+    WaterVerticalBonus
+}
 public class Dot : MonoBehaviour
 {
     private SpriteRenderer spriteRenderer;
@@ -10,10 +21,11 @@ public class Dot : MonoBehaviour
     private static Dot previousSelectedDot;
     private static BoardManager boardManager;
 
+    [SerializeField] private DotKind dotKind;
+    [SerializeField] private DotKind[] equalDots;
     [SerializeField] private Vector2Int dotPosition;
     [SerializeField] private GameObject effect;
     [SerializeField] private GameObject boomLight;
-    [SerializeField] private Sprite[] equalDots;
 
     private static bool isBoardUpdating = false;
     private void Start()
@@ -36,29 +48,14 @@ public class Dot : MonoBehaviour
     }
 
     public bool IsSelected { get; set; }
-
-    private IEnumerator UpSlowScale()
+    public DotKind DotKind
     {
-        for (float q = 1f; q < 2f && transform.localScale.x <= 1.3f; q += .1f)
-        {
-            transform.localScale += new Vector3(0.05f, 0.05f, 0.05f);
-            yield return new WaitForSeconds(.015f);
-        }
+        get { return dotKind; }
     }
-
-    private IEnumerator DownSlowScale()
-    {
-        for (float q = 1f; q < 2f && transform.localScale.x >= 1f; q += .1f)
-        {
-            transform.localScale += new Vector3(-0.05f, -0.05f, -0.05f);
-            yield return new WaitForSeconds(.015f);
-        }
-    }
-
     private bool IsEqualDots()
     {
-        if (!Input.GetMouseButton(0) || previousSelectedDot == null || previousSelectedDot.spriteRenderer == null) return false;
-        return equalDots.Contains(previousSelectedDot.spriteRenderer.sprite);
+        if (!Input.GetMouseButton(0) || previousSelectedDot == null) return false;
+        return equalDots.Contains(previousSelectedDot.dotKind);
     }
 
     private bool IsNeighbourToPrevious()
@@ -83,7 +80,6 @@ public class Dot : MonoBehaviour
             }
             else
             {
-                StartCoroutine(UpSlowScale());
                 return;
             }
         }
@@ -93,13 +89,6 @@ public class Dot : MonoBehaviour
         SetSelected();
         boardManager.AddToChain(this);
     }
-
-    private void OnMouseExit()
-    {
-        if (IsSelected)
-            StartCoroutine(DownSlowScale());
-    }
-
     private void OnMouseDown()
     {
         if (previousSelectedDot != null || isBoardUpdating) return;
@@ -135,12 +124,10 @@ public class Dot : MonoBehaviour
         if (IsSelected)
         {
             spriteRenderer.color = Color.white;
-            StartCoroutine(DownSlowScale());
         }
         else
         {
             spriteRenderer.color = SelectedColor;
-            StartCoroutine(UpSlowScale());
         }
         IsSelected = !IsSelected;
     }

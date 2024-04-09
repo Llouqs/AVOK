@@ -134,12 +134,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e278ab0f287c168468970c612bb2b439, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dotKind: 6
+  equalDots: 0100000006000000
   dotPosition: {x: 0, y: 0}
   effect: {fileID: 6353863457263414901, guid: 6a9ae5172246bbf4288efbf3301ee381, type: 3}
   boomLight: {fileID: 2483207535211805151}
-  equalDots:
-  - {fileID: 21300000, guid: f22978947326bf34eaf8a5d274658c8c, type: 3}
-  - {fileID: 21300000, guid: 0b30b7787bf42444d81ade0b0540b7c8, type: 3}
 --- !u!1001 &3171731937400251216
 PrefabInstance:
   m_ObjectHideFlags: 0
