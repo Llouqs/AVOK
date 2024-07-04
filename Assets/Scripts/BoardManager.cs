@@ -27,11 +27,9 @@ public class BoardManager : MonoBehaviour
     [SerializeField] private GameObject linePrefab;
     [SerializeField] private GameObject boomEffectPrefab;
     [SerializeField] private GameObject doubleBoomEffectPrefab;
-    
-    [SerializeField] private int width, height; 
+    [SerializeField] private GoalManager goalManager;
 
-    private int _scores = 0;
-    [SerializeField] private Record recordUI;
+    [SerializeField] private int width, height; 
     
     public GameObject[,] allTiles;
     public Dot[,] allDots;
@@ -57,6 +55,7 @@ public class BoardManager : MonoBehaviour
         _chain = new List<Dot>();
         allTiles = new GameObject[width, height];
         allDots = new Dot[width, height];
+        goalManager = FindObjectOfType<GoalManager>();
     }
     private void NewTile(int i, int j)
     {
@@ -133,6 +132,7 @@ public class BoardManager : MonoBehaviour
     {
 
     }
+
     private void SetUp()
     {
         for (int i = 0; i < width; i++) {
@@ -159,13 +159,8 @@ public class BoardManager : MonoBehaviour
             return;
         }
 
-        _scores += chainCount;
-
         if (chainCount >= 7)
         {
-            int bonusScore = (chainCount >= 10) ? 30 : 10;
-            _scores += bonusScore;
-
             GameObject effectPrefab = (chainCount >= 10) ? doubleBoomEffectPrefab : boomEffectPrefab;
             var effect = Instantiate(effectPrefab, _chain[chainCount - 1].transform.position, Quaternion.identity);
             if (chainCount >= 10)
@@ -180,8 +175,8 @@ public class BoardManager : MonoBehaviour
             Destroy(effect, 2.0f);
         }
 
-        recordUI.ChangeScores(_scores);
         ClearBoom();
+        goalManager.ChangeGoalsScores(_chain);
         foreach (Dot dot in _chain)
         {
             DestroyDot(dot);

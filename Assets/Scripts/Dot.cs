@@ -21,7 +21,7 @@ public class Dot : MonoBehaviour
     private static Dot previousSelectedDot;
     private static BoardManager boardManager;
 
-    [SerializeField] private DotKind dotKind;
+    [SerializeField] public DotKind dotKind;
     [SerializeField] private DotKind[] equalDots;
     [SerializeField] private Vector2Int dotPosition;
     [SerializeField] private GameObject effect;
